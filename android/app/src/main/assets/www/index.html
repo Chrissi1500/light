@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ESP32 Claude</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo">⌁</span> ESP32 Claude</div>
+  <button id="status" class="pill off" onclick="showTab('connect')">nicht verbunden</button>
+</header>
+
+<main>
+<!-- ============ VERBINDEN ============ -->
+<section id="tab-connect" class="tab active">
+  <div class="seg" id="transportSeg">
+    <button data-t="wifi" class="on">WLAN</button>
+    <button data-t="ble">Bluetooth</button>
+    <button data-t="usb">USB</button>
+  </div>
+
+  <div class="card" data-pane="wifi">
+    <h3>Per WLAN verbinden</h3>
+    <p class="hint">Handy und ESP32 im selben WLAN – oder mit dem Hotspot <b>ESP32-Claude</b> (Passwort <code>esp32code</code>) verbinden, IP dann <code>192.168.4.1</code>.</p>
+    <div class="row">
+      <input id="wifiHost" placeholder="IP, z. B. 192.168.178.42" inputmode="decimal" autocomplete="off">
+      <button onclick="discover()">Suchen</button>
+    </div>
+    <div id="wifiList" class="list"></div>
+    <button class="primary wide" onclick="connectWifi()">Verbinden</button>
+  </div>
+
+  <div class="card hidden" data-pane="ble">
+    <h3>Per Bluetooth verbinden</h3>
+    <p class="hint">Der ESP32 erscheint als <b>ESP32-Claude</b> (oder dem Namen, den du vergeben hast).</p>
+    <div class="row">
+      <button class="primary" onclick="Native.bleScan()">Scannen</button>
+      <button onclick="Native.bleDisconnect()">Trennen</button>
+    </div>
+    <div id="bleList" class="list"></div>
+  </div>
+
+  <div class="card hidden" data-pane="usb">
+    <h3>Per USB-Kabel (OTG) verbinden</h3>
+    <p class="hint">ESP32 direkt per USB-C/OTG-Kabel ans Handy stecken. Funktioniert auch, wenn noch kein Agent drauf ist.</p>
+    <div class="row">
+      <button class="primary" onclick="Native.usbConnect()">USB verbinden</button>
+      <button onclick="Native.usbDisconnect()">Trennen</button>
+    </div>
+    <details>
+      <summary>Agent auf ESP32 installieren</summary>
+      <p class="hint">Voraussetzung: MicroPython ist bereits geflasht (siehe Anleitung im Projekt). Danach ist der ESP32 per WLAN und Bluetooth erreichbar.</p>
+      <input id="instSsid" placeholder="WLAN-Name (optional)" autocomplete="off">
+      <input id="instPw" type="password" placeholder="WLAN-Passwort" autocomplete="off">
+      <input id="instName" placeholder="Gerätename (Standard ESP32-Claude)" autocomplete="off">
+      <button class="primary wide" onclick="usbInstall()">Agent installieren</button>
+      <div id="instProgress" class="hint"></div>
+    </details>
+  </div>
+
+  <div class="card">
+    <h3>Gerät</h3>
+    <div id="devInfo" class="kv muted">Noch keine Verbindung.</div>
+    <div class="row">
+      <button onclick="refreshInfo()">Aktualisieren</button>
+      <button onclick="cmdNote({cmd:'reset'})">Neustart</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>WLAN des ESP32 ändern</h3>
+    <p class="hint">Schickt neue WLAN-Daten über die aktuelle Verbindung (z. B. per Bluetooth oder Hotspot) – danach startet der ESP32 neu.</p>
+    <input id="newSsid" placeholder="WLAN-Name" autocomplete="off">
+    <input id="newPw" type="password" placeholder="WLAN-Passwort" autocomplete="off">
+    <button class="wide" onclick="setWifi()">Speichern &amp; neu starten</button>
+  </div>
+</section>
+
+<!-- ============ CLAUDE ============ -->
+<section id="tab-claude" class="tab">
+  <details id="claudeSettings" class="card">
+    <summary>Einstellungen (API-Key, Modell, Board)</summary>
+    <label>Anthropic API-Key</label>
+    <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+    <p class="hint">Bekommst du unter console.anthropic.com → API Keys. Wird nur auf diesem Handy gespeichert.</p>
+    <label>Modell</label>
+    <select id="model">
+      <option value="claude-opus-5-5">Claude Opus 5.5 (beste Qualität)</option>
+      <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (schnell, günstiger)</option>
+      <option value="claude-haiku-5-5">Claude Haiku 5.5 (sehr schnell, am günstigsten)</option>
+    </select>
+    <label>Gründlichkeit</label>
+    <select id="effort">
+      <option value="low">niedrig – schnell</option>
+      <option value="medium" selected>mittel</option>
+      <option value="high">hoch – gründlich</option>
+    </select>
+    <label>Board / Verkabelung (hilft Claude)</label>
+    <textarea id="boardNote" rows="2" placeholder="z. B. ESP32 DevKit V1, LED an GPIO 2, DHT22 an GPIO 4"></textarea>
+  </details>
+
+  <div id="chat" class="chat">
+    <div class="msg sys">Sag mir, was dein ESP32 tun soll – z. B. <i>„Lass die LED im Sekundentakt blinken“</i> oder <i>„Lies alle 5 s die Temperatur und gib sie aus“</i>. Ich schreibe den Code, teste ihn direkt auf dem Gerät und installiere ihn.</div>
+  </div>
+  <div class="composer">
+    <textarea id="prompt" rows="2" placeholder="Was soll der ESP32 machen?"></textarea>
+    <div class="col">
+      <button id="sendBtn" class="primary" onclick="sendPrompt()">Senden</button>
+      <button id="stopBtn" class="hidden" onclick="Native.claudeCancel()">Stopp</button>
+      <button onclick="newChat()" title="Neues Gespräch">Neu</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CODE ============ -->
+<section id="tab-code" class="tab">
+  <div class="row">
+    <input id="codePath" value="app.py" autocomplete="off" spellcheck="false">
+    <select id="examples" onchange="loadExample(this.value); this.value=''">
+      <option value="">Beispiele …</option>
+    </select>
+  </div>
+  <textarea id="editor" class="code" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+  <div class="btns">
+    <button class="primary" onclick="runEditor()">▶ Ausführen</button>
+    <button onclick="deployEditor()">⬆ Als App installieren</button>
+    <button onclick="saveEditor()">💾 Datei speichern</button>
+    <button onclick="cmdNote({cmd:'stop'})">⏹ App stoppen</button>
+    <button onclick="askClaudeAboutCode()">✦ Claude fragen</button>
+  </div>
+  <pre id="runOut" class="out">Ausgabe erscheint hier.</pre>
+</section>
+
+<!-- ============ DATEIEN ============ -->
+<section id="tab-files" class="tab">
+  <div class="row"><button class="primary" onclick="listFiles()">Aktualisieren</button></div>
+  <div id="fileList" class="list"></div>
+</section>
+
+<!-- ============ LOG ============ -->
+<section id="tab-log" class="tab">
+  <div class="row">
+    <label class="switch"><input type="checkbox" id="live" checked> Live</label>
+    <button onclick="document.getElementById('logOut').textContent=''">Leeren</button>
+  </div>
+  <pre id="logOut" class="out log"></pre>
+</section>
+</main>
+
+<nav>
+  <button data-tab="connect" class="on"><span>⇄</span>Verbinden</button>
+  <button data-tab="claude"><span>✦</span>Claude</button>
+  <button data-tab="code"><span>{ }</span>Code</button>
+  <button data-tab="files"><span>▤</span>Dateien</button>
+  <button data-tab="log"><span>≡</span>Log</button>
+</nav>
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
