@@ -68,7 +68,7 @@ def find_port(given):
     from serial.tools import list_ports
     ports = list(list_ports.comports())
     cands = [p for p in ports if p.vid in KNOWN_VIDS]
-    if len(cands) == 1:
+    if len(cands) >= 1 and (len(cands) == 1 or not sys.stdin.isatty()):
         p = cands[0]
         print("ESP32 gefunden an %s (%s)" % (p.device, KNOWN_VIDS[p.vid]))
         return p.device
@@ -122,11 +122,14 @@ def flash(port, chip, firmware):
     time.sleep(4)
 
 
-def install_agent(port):
+def install_agent(port, a):
     print("\n== Agent installieren ==")
-    ssid = input("WLAN-Name (leer lassen = nur Hotspot/Bluetooth): ").strip()
-    pw = getpass.getpass("WLAN-Passwort: ") if ssid else ""
-    name = input("Geraetename [ESP32-Claude]: ").strip() or "ESP32-Claude"
+    if a.yes:
+        ssid, pw, name = a.ssid or "", a.password or "", a.name or "ESP32-Claude"
+    else:
+        ssid = a.ssid if a.ssid is not None else input("WLAN-Name (leer lassen = nur Hotspot/Bluetooth): ").strip()
+        pw = a.password if a.password is not None else (getpass.getpass("WLAN-Passwort: ") if ssid else "")
+        name = a.name or input("Geraetename [ESP32-Claude]: ").strip() or "ESP32-Claude"
     cfg = {"ssid": ssid, "password": pw, "name": name, "ble": True, "ap_password": "esp32code"}
     cfg_path = os.path.join(tempfile.gettempdir(), "esp32_config.json")
     with open(cfg_path, "w") as f:
@@ -137,11 +140,12 @@ def install_agent(port):
               "+", "cp", cfg_path, ":config.json"])
     os.remove(cfg_path)
     print("\nFertig! Der ESP32 startet neu. Die IP-Adresse erscheint gleich in der Ausgabe.")
-    print("(Beenden mit Strg+C)\n")
-    show_log(port, reset=True)
+    if not a.log_sekunden:
+        print("(Beenden mit Strg+C)\n")
+    show_log(port, reset=True, seconds=a.log_sekunden)
 
 
-def show_log(port, reset=False):
+def show_log(port, reset=False, seconds=0):
     import serial
     import time
     s = serial.Serial(port, 115200, timeout=0.2)
@@ -151,8 +155,9 @@ def show_log(port, reset=False):
         s.rts = True
         time.sleep(0.2)
         s.rts = False
+    end = time.time() + seconds if seconds else None
     try:
-        while True:
+        while end is None or time.time() < end:
             d = s.read(512)
             if d:
                 sys.stdout.write(d.decode("utf-8", "replace"))
@@ -169,20 +174,27 @@ def main():
     ap.add_argument("--firmware", help="eigene MicroPython-.bin statt Download")
     ap.add_argument("--nur-agent", action="store_true", help="MicroPython nicht neu flashen")
     ap.add_argument("--log", action="store_true", help="nur serielle Ausgabe anzeigen")
+    ap.add_argument("--ssid", help="WLAN-Name (ohne Rueckfrage)")
+    ap.add_argument("--password", help="WLAN-Passwort (ohne Rueckfrage)")
+    ap.add_argument("--name", help="Geraetename, Standard ESP32-Claude")
+    ap.add_argument("--yes", "-y", action="store_true", help="keine Rueckfragen (fuer Skripte/Claude Code)")
+    ap.add_argument("--log-sekunden", type=int, default=0, help="Ausgabe nur N Sekunden zeigen, dann beenden")
     a = ap.parse_args()
 
     ensure_tools()
     port = find_port(a.port)
+    if a.yes and not a.log_sekunden:
+        a.log_sekunden = 25
     if a.log:
-        show_log(port)
+        show_log(port, seconds=a.log_sekunden)
         return
     if not a.nur_agent:
         chip = detect_chip(port)
         print("Erkannter Chip:", chip)
-        if input("MicroPython jetzt flashen? Alles auf dem ESP32 wird geloescht. [j/N] ").lower() != "j":
+        if not a.yes and input("MicroPython jetzt flashen? Alles auf dem ESP32 wird geloescht. [j/N] ").lower() != "j":
             sys.exit("Abgebrochen.")
         flash(port, chip, a.firmware)
-    install_agent(port)
+    install_agent(port, a)
 
 
 if __name__ == "__main__":
