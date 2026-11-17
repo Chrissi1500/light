@@ -16,7 +16,7 @@ MicroPython-Code, testet ihn direkt auf dem Gerät, liest die Ausgaben und insta
 | `android/` | Quellcode der App (Java + WebView-Oberfläche) |
 | `esp32/` | Agent für den ESP32 (`agent.py`, `main.py`) |
 | `laptop/esp32_setup.py` | Einrichtung am Laptop: MicroPython flashen + Agent installieren |
-| `release/Fahrradlicht.apk` | **Fahrradlicht-App**: Lichter am Fahrrad per Bluetooth schalten (siehe unten) |
+| `release/Fahrradlicht.apk` | **Fahrradlicht-App**: Zusatzlicht am Fahrrad per Bluetooth schalten (siehe unten) |
 | `fahrradlicht/` | Quellcode der Fahrradlicht-App |
 | `esp32/licht.py` | Licht-Programm für den ESP32 (spielt die App selbst auf) |
 
@@ -24,13 +24,14 @@ MicroPython-Code, testet ihn direkt auf dem Gerät, liest die Ausgaben und insta
 
 ## Fahrradlicht-App 🚲
 
-Eigene, einfache App nur zum Lichtschalten – große Knöpfe, dunkles Design, verbindet sich automatisch.
+Eigene, einfache App für ein **Zusatzlicht** am Fahrrad – große Knöpfe, dunkles Design, verbindet sich automatisch.
+Front- und Rücklicht bleiben beim Fahrrad (bzw. eBike) selbst.
 
-- **Lichter** (Frontlicht, Rücklicht, Zusatzlicht): antippen = an/aus, dazu *Aus / An / Blink* und ein Helligkeitsregler (PWM)
-- **Blinker**: ◀ Links · ⚠ Warnblinker · Rechts ▶ (nochmal tippen = aus; links schaltet rechts automatisch ab)
-- **Alles an / Alles aus**
-- **Einstellungen** (Zahnrad): Namen und GPIO-Pins ändern, Lichter hinzufügen/entfernen, Relais-Modus
-  (invertiert), Blinktempo, Bildschirm anlassen, Vibration
+- **Große Lampen-Taste**: antippen = an/aus
+- **Aus / An / Blink** und ein **Helligkeitsregler** (PWM)
+- **Einstellungen** (Zahnrad): Name und GPIO-Pin ändern, Relais-Modus (invertiert), Blinktempo,
+  Bildschirm anlassen, Vibration. Bei Bedarf lassen sich weitere Lichter hinzufügen – dann erscheinen
+  zusätzlich „Alles an / Alles aus“.
 
 ### Einrichten
 
@@ -42,20 +43,14 @@ Eigene, einfache App nur zum Lichtschalten – große Knöpfe, dunkles Design, v
    von selbst wieder. Ab dann startet die App direkt mit den Lichtknöpfen.
 
 Die App merkt sich den ESP32 und verbindet sich beim Öffnen (und nach Verbindungsabbrüchen) automatisch.
-Der Zustand der Lichter bleibt auf dem ESP32 gespeichert (`licht.json`), Blinker sind nach dem Einschalten aus.
+Der Zustand des Lichts (an/aus, Helligkeit) bleibt auf dem ESP32 gespeichert (`licht.json`).
 
-### Verkabelung (Standard-Pins, in der App änderbar)
+### Verkabelung
 
-| Licht | GPIO |
-|---|---|
-| Frontlicht | 25 |
-| Rücklicht | 26 |
-| Blinker links | 27 |
-| Blinker rechts | 14 |
-| Zusatzlicht | 33 |
+Das Zusatzlicht hängt standardmäßig an **GPIO 25** (in der App änderbar).
 
-Die ESP32-Pins liefern nur 3,3 V und wenige mA – **LEDs/Lampen nie direkt anschließen**, sondern über einen
-Logic-Level-MOSFET (z. B. IRLZ44N, AO3400) oder ein MOSFET-Modul pro Licht:
+Die ESP32-Pins liefern nur 3,3 V und wenige mA – **die Lampe nie direkt anschließen**, sondern über einen
+Logic-Level-MOSFET (z. B. IRLZ44N, AO3400) oder ein MOSFET-Modul:
 
 ```
  Akku + ──────────────► Lampe + 
@@ -69,15 +64,14 @@ Relais-Module, die bei LOW schalten: in den Einstellungen „Ausgänge invertier
 Blinken funktionieren mit Relais nur eingeschränkt). Den ESP32 kannst du z. B. über einen Step-Down-Wandler
 oder eine USB-Powerbank vom Fahrradakku versorgen.
 
-> Hinweis: Im Straßenverkehr (StVZO) gelten feste Regeln für Fahrradbeleuchtung – z. B. darf das Frontlicht
-> nicht blinken und Blinker sind nur an bestimmten Fahrrädern zugelassen. Die Blink-Funktionen sind für Zusatz-
-> und Spaßbeleuchtung gedacht.
+> Hinweis: Im Straßenverkehr (StVZO) gelten feste Regeln für Fahrradbeleuchtung – ein blinkendes oder blendendes
+> Zusatzlicht ist dort nicht erlaubt. Blinken und volle Helligkeit sind für abseits der Straße gedacht.
 
 ### Protokoll
 
 Die App nutzt den vorhandenen Agent-Befehl `run` über Bluetooth:
-`{"cmd":"run","code":"import licht\nlicht.cmd('{\"a\":\"toggle\",\"id\":\"front\"}')"}` –
-Aktionen: `get`, `set`, `toggle`, `blinker`, `all`, `config` (siehe Kopf von `esp32/licht.py`).
+`{"cmd":"run","code":"import licht\nlicht.cmd('{\"a\":\"toggle\",\"id\":\"extra\"}')"}` –
+Aktionen: `get`, `set`, `toggle`, `all`, `config` (siehe Kopf von `esp32/licht.py`).
 
 ---
 

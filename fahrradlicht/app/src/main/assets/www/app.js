@@ -149,18 +149,20 @@ async function onConnected() {
 setInterval(() => { if (connected && !busy && !document.hidden && $('sheet').classList.contains('hidden')) refresh(); }, 15000);
 
 // =================================================================== Darstellung
-const COLORS = { front: '#fff1b8', rear: '#ff4d4d', extra: '#7fd4ff' };
+const COLORS = { extra: '#ffd24a' };
 const ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>';
 const MODE_TXT = { off: 'aus', on: 'an', blink: 'blinkt' };
 
 function render() {
-  const normal = lights.filter((l) => l.kind !== 'blinker');
+  const normal = lights;
   const grid = $('lightGrid');
   grid.innerHTML = '';
+  const single = normal.length === 1;
+  grid.classList.toggle('single', single);
   normal.forEach((l, i) => {
     const t = document.createElement('div');
-    const wide = normal.length % 2 === 1 && i === normal.length - 1;
-    t.className = 'tile m-' + l.mode + (wide ? ' wide' : '') + (l.err ? ' error' : '');
+    const wide = !single && normal.length % 2 === 1 && i === normal.length - 1;
+    t.className = 'tile m-' + l.mode + (single ? ' hero' : wide ? ' wide' : '') + (l.err ? ' error' : '');
     t.style.setProperty('--c', COLORS[l.id] || '#ffd24a');
     t.innerHTML = `
       <button class="main" type="button">
@@ -185,18 +187,7 @@ function render() {
     grid.appendChild(t);
   });
 
-  const left = lights.find((l) => l.id === 'left');
-  const right = lights.find((l) => l.id === 'right');
-  const lOn = left && left.mode === 'blink';
-  const rOn = right && right.mode === 'blink';
-  const hazard = lOn && rOn;
-  $('blinkRow').classList.toggle('hidden', !left && !right);
-  document.querySelectorAll('.blink').forEach((b) => {
-    const s = b.dataset.side;
-    b.classList.toggle('on', s === 'hazard' ? hazard : s === 'left' ? lOn && !hazard : rOn && !hazard);
-    b.disabled = (s === 'left' && !left) || (s === 'right' && !right) || (s === 'hazard' && !(left && right));
-    b.style.animationDuration = (cfg.blink_ms * 2) + 'ms';
-  });
+  $('allRow').classList.toggle('hidden', normal.length < 2);
 }
 
 function optimistic(id, patch) {
@@ -205,14 +196,7 @@ function optimistic(id, patch) {
   render();
 }
 
-document.querySelectorAll('.blink').forEach((b) => b.onclick = () => {
-  buzz();
-  const side = b.classList.contains('on') ? 'off' : b.dataset.side;
-  lights.filter((l) => l.kind === 'blinker').forEach((l) => { l.mode = side === 'hazard' || side === l.id ? 'blink' : 'off'; });
-  render();
-  send({ a: 'blinker', side });
-});
-$('btnAllOn').onclick = () => { buzz(); lights.forEach((l) => { if (l.kind !== 'blinker') l.mode = 'on'; }); render(); send({ a: 'all', mode: 'on' }); };
+$('btnAllOn').onclick = () => { buzz(); lights.forEach((l) => { l.mode = 'on'; }); render(); send({ a: 'all', mode: 'on' }); };
 $('btnAllOff').onclick = () => { buzz(); lights.forEach((l) => { l.mode = 'off'; }); render(); send({ a: 'all', mode: 'off' }); };
 
 // =================================================================== Installation
@@ -264,14 +248,13 @@ function openSheet() {
   $('sheet').classList.remove('hidden');
 }
 function closeSheet() { $('sheet').classList.add('hidden'); }
-const KIND_TXT = { left: 'Blinker links', right: 'Blinker rechts' };
 function renderCfg() {
   const box = $('cfgLights');
   box.innerHTML = cfgDraft.length ? '' : '<p class="hint">Verbinde dich mit dem ESP32, um die Lichter einzustellen.</p>';
   cfgDraft.forEach((l, i) => {
     const d = document.createElement('div');
     d.className = 'cfg-light';
-    d.innerHTML = `<div class="kind">${l.kind === 'blinker' ? KIND_TXT[l.id] || 'Blinker' : 'Licht'}</div>
+    d.innerHTML = `<div class="kind">Licht ${i + 1}</div>
       <input value="${esc(l.name)}" aria-label="Name" placeholder="Name">
       <input type="number" min="0" max="48" inputmode="numeric" value="${esc(l.pin)}" aria-label="GPIO" placeholder="GPIO">
       <button type="button" aria-label="Entfernen">✕</button>`;
@@ -324,11 +307,7 @@ function demoNative() {
   const st = {
     invert: false, blink_ms: 400,
     lights: [
-      { id: 'front', name: 'Frontlicht', pin: 25, kind: 'light', mode: 'on', bright: 100 },
-      { id: 'rear', name: 'Rücklicht', pin: 26, kind: 'light', mode: 'blink', bright: 60 },
-      { id: 'left', name: 'Blinker links', pin: 27, kind: 'blinker', mode: 'blink', bright: 100 },
-      { id: 'right', name: 'Blinker rechts', pin: 14, kind: 'blinker', mode: 'off', bright: 100 },
-      { id: 'extra', name: 'Zusatzlicht', pin: 33, kind: 'light', mode: 'off', bright: 100 },
+      { id: 'extra', name: 'Zusatzlicht', pin: 25, kind: 'light', mode: 'on', bright: 80 },
     ],
   };
   const fire = (t, d) => setTimeout(() => window.onNative(t, JSON.stringify(d)), 150);
@@ -336,8 +315,7 @@ function demoNative() {
     const L = (id) => st.lights.find((l) => l.id === id);
     if (q.a === 'set') Object.assign(L(q.id), q.mode ? { mode: q.mode } : {}, q.bright ? { bright: q.bright } : {});
     if (q.a === 'toggle') L(q.id).mode = L(q.id).mode === 'off' ? 'on' : 'off';
-    if (q.a === 'blinker') st.lights.forEach((l) => { if (l.kind === 'blinker') l.mode = q.side === 'hazard' || q.side === l.id ? 'blink' : 'off'; });
-    if (q.a === 'all') st.lights.forEach((l) => { if (l.kind !== 'blinker' || q.mode === 'off') l.mode = q.mode; });
+    if (q.a === 'all') st.lights.forEach((l) => { l.mode = q.mode; });
     if (q.a === 'config') { st.invert = q.invert; st.blink_ms = q.blink_ms; st.lights = q.lights.map((l) => ({ mode: 'off', bright: 100, ...l })); }
     return { ok: true, ...JSON.parse(JSON.stringify(st)) };
   };

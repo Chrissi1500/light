@@ -90,19 +90,18 @@ label.switch input { width: 20px; height: 20px; margin: 0; accent-color: var(--a
 .seg button.on { background: var(--c); color: #15161a; font-weight: 650; }
 .tile input[type=range] { margin: 0; padding: 0; height: 28px; background: none; border: 0; accent-color: var(--c); }
 
-/* Blinker */
-.blinkrow { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-.blink {
-  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 16px 4px 12px;
-  border-radius: 18px; border: 2px solid var(--border); background: var(--surface); font-size: 14px; font-weight: 600;
-}
-.blink svg { width: 40px; height: 40px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.blink.hazard svg { stroke-width: 2.4; }
-.blink.on { border-color: var(--amber); color: var(--amber); animation: blinkbg .8s steps(1) infinite; }
-.blink:disabled { opacity: .35; }
 @keyframes flash { 50% { opacity: .35; } }
-@keyframes blinkbg { 0% { background: color-mix(in srgb, var(--amber) 22%, var(--surface)); } 50% { background: var(--surface); } }
 
+/* Nur ein Licht: grosse Kachel */
+.grid.single { grid-template-columns: 1fr; }
+.tile.hero { padding: 22px 18px 18px; gap: 18px; }
+.tile.hero .main { flex-direction: column; text-align: center; gap: 14px; padding: 8px 0; }
+.tile.hero .bulb { width: 150px; height: 150px; }
+.tile.hero .bulb svg { width: 80px; height: 80px; }
+.tile.hero .name { font-size: 22px; }
+.tile.hero .state { font-size: 16px; }
+.tile.hero .seg button { padding: 14px 0; font-size: 16px; }
+.tile.hero input[type=range] { height: 40px; }
 .allrow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* Einstellungen */
