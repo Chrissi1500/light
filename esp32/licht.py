@@ -6,13 +6,13 @@
 #
 # Befehle (JSON):
 #   {"a":"get"}                                  -> Zustand + Konfiguration
-#   {"a":"set","id":"front","mode":"on"}         mode: off | on | blink
-#   {"a":"set","id":"front","bright":60}         Helligkeit 5..100 %
-#   {"a":"toggle","id":"front"}                  an <-> aus
-#   {"a":"blinker","side":"left"}                left | right | hazard | off
-#   {"a":"all","mode":"off"}                     alle Lichter (ohne Blinker) an/aus
+#   {"a":"set","id":"extra","mode":"on"}         mode: off | on | blink
+#   {"a":"set","id":"extra","bright":60}         Helligkeit 5..100 %
+#   {"a":"toggle","id":"extra"}                  an <-> aus
+#   {"a":"all","mode":"off"}                     alle Lichter an/aus
 #   {"a":"config","lights":[...],"invert":false,"blink_ms":400}
 #
+# Standard ist ein Zusatzlicht an GPIO 25; weitere Lichter lassen sich in der App hinzufuegen.
 # Jede Leuchte haengt ueber einen MOSFET/Transistor (oder ein Relais) an einem GPIO.
 
 import json, time, machine, _thread
@@ -25,11 +25,7 @@ DEFAULT = {
     "blink_ms": 400,      # halbe Blinkperiode (400 ms -> ca. 1,25 Hz)
     "pwm_hz": 1000,
     "lights": [
-        {"id": "front", "name": "Frontlicht", "pin": 25, "kind": "light"},
-        {"id": "rear",  "name": "Rücklicht",  "pin": 26, "kind": "light"},
-        {"id": "left",  "name": "Blinker links",  "pin": 27, "kind": "blinker"},
-        {"id": "right", "name": "Blinker rechts", "pin": 14, "kind": "blinker"},
-        {"id": "extra", "name": "Zusatzlicht", "pin": 33, "kind": "light"},
+        {"id": "extra", "name": "Zusatzlicht", "pin": 25, "kind": "light"},
     ],
 }
 
@@ -61,9 +57,7 @@ def _save():
         st = {}
         for l in _cfg["lights"]:
             s = _state.get(l["id"], {})
-            # Blinker nach Neustart nicht wieder einschalten
-            st[l["id"]] = {"mode": "off" if l.get("kind") == "blinker" else s.get("mode", "off"),
-                           "bright": s.get("bright", 100)}
+            st[l["id"]] = {"mode": s.get("mode", "off"), "bright": s.get("bright", 100)}
         d = {k: _cfg[k] for k in ("invert", "blink_ms", "pwm_hz", "lights")}
         d["state"] = st
         with open(CFG_FILE, "w") as f:
@@ -187,18 +181,12 @@ def handle(req):
             _light(req["id"])
             s = _state[req["id"]]
             s["mode"] = "off" if s["mode"] != "off" else "on"
-        elif a == "blinker":
-            side = req.get("side", "off")
-            for l in _cfg["lights"]:
-                if l.get("kind") != "blinker":
-                    continue
-                on = side == "hazard" or l["id"] == side
-                _state[l["id"]]["mode"] = "blink" if on else "off"
         elif a == "all":
             mode = req.get("mode", "off")
+            if mode not in MODES:
+                raise ValueError("mode muss off/on/blink sein")
             for l in _cfg["lights"]:
-                if l.get("kind") != "blinker" or mode == "off":
-                    _state[l["id"]]["mode"] = mode
+                _state[l["id"]]["mode"] = mode
         elif a == "config":
             for k in ("invert", "blink_ms", "pwm_hz", "lights"):
                 if k in req:

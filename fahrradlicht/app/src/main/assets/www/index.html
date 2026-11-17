@@ -45,19 +45,8 @@
   <section id="viewLights" class="view hidden">
     <div id="lightGrid" class="grid"></div>
 
-    <div id="blinkRow" class="blinkrow">
-      <button class="blink" data-side="left" type="button" aria-label="Blinker links">
-        <svg viewBox="0 0 24 24"><path d="M14 5 7 12l7 7" /></svg><span>Links</span>
-      </button>
-      <button class="blink hazard" data-side="hazard" type="button" aria-label="Warnblinker">
-        <svg viewBox="0 0 24 24"><path d="M12 4 3 20h18z" /></svg><span>Warnblink</span>
-      </button>
-      <button class="blink" data-side="right" type="button" aria-label="Blinker rechts">
-        <svg viewBox="0 0 24 24"><path d="m10 5 7 7-7 7" /></svg><span>Rechts</span>
-      </button>
-    </div>
 
-    <div class="allrow">
+    <div id="allRow" class="allrow">
       <button id="btnAllOn" class="big" type="button">Alles an</button>
       <button id="btnAllOff" class="big" type="button">Alles aus</button>
     </div>
@@ -85,7 +74,7 @@
 
     <div class="card">
       <h3>Lichter &amp; GPIO-Pins</h3>
-      <p class="hint">Jede Leuchte hängt über einen MOSFET/Transistor oder ein Relais an einem GPIO des ESP32.</p>
+      <p class="hint">Das Licht hängt über einen MOSFET/Transistor oder ein Relais an einem GPIO des ESP32.</p>
       <div id="cfgLights"></div>
       <button id="btnAddLight" type="button">+ Licht hinzufügen</button>
       <label class="switch"><input type="checkbox" id="cfgInvert"> Ausgänge invertieren (Relais schaltet bei LOW)</label>
