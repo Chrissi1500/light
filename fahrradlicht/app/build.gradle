@@ -1,0 +1,42 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'de.fahrradlicht'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'de.fahrradlicht'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+    signingConfigs {
+        // Gleicher fester Schluessel wie die ESP32-Claude-App, damit Updates sich drueber installieren lassen.
+        release {
+            storeFile file('../../android/app/esp32claude.keystore')
+            storePassword 'esp32claude'
+            keyAlias 'esp32claude'
+            keyPassword 'esp32claude'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug { signingConfig signingConfigs.release }
+    }
+    lint { checkReleaseBuilds false; abortOnError false }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    sourceSets { main { assets.srcDirs += ['build/generated/espAssets'] } }
+}
+
+// Licht-Programm aus ../../esp32 in die App packen (fuer "Licht-Programm installieren")
+tasks.register('copyEspFiles', Copy) {
+    from('../../esp32') { include 'licht.py' }
+    into 'build/generated/espAssets/esp32'
+}
+preBuild.dependsOn copyEspFiles

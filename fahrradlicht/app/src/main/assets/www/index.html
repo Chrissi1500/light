@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Fahrradlicht</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="brand">Fahrradlicht</div>
+  <div class="head-right">
+    <button id="status" class="pill off" type="button">nicht verbunden</button>
+    <button id="btnSettings" class="icon" type="button" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- Verbinden -->
+  <section id="viewConnect" class="view">
+    <div class="card">
+      <h2>Mit dem ESP32 verbinden</h2>
+      <p class="hint">Bluetooth am Handy einschalten, ESP32 mit Strom versorgen und „Suchen“ tippen.
+        Der ESP32 heißt so, wie du ihn eingerichtet hast (Standard: <b>ESP32-Claude</b>).</p>
+      <button id="btnScan" class="primary big" type="button">Suchen</button>
+      <div id="scanState" class="hint"></div>
+      <ul id="devList" class="devlist"></ul>
+    </div>
+  </section>
+
+  <!-- Licht-Programm fehlt -->
+  <section id="viewInstall" class="view hidden">
+    <div class="card">
+      <h2>Licht-Programm installieren</h2>
+      <p class="hint">Auf dem ESP32 ist das Licht-Programm noch nicht drauf. Die App spielt es per Bluetooth auf
+        (als <code>app.py</code>, startet automatisch beim Einschalten). Der ESP32 startet danach kurz neu.</p>
+      <button id="btnInstall" class="primary big" type="button">Jetzt installieren</button>
+      <div id="installState" class="hint"></div>
+    </div>
+  </section>
+
+  <!-- Lichtsteuerung -->
+  <section id="viewLights" class="view hidden">
+    <div id="lightGrid" class="grid"></div>
+
+    <div id="blinkRow" class="blinkrow">
+      <button class="blink" data-side="left" type="button" aria-label="Blinker links">
+        <svg viewBox="0 0 24 24"><path d="M14 5 7 12l7 7" /></svg><span>Links</span>
+      </button>
+      <button class="blink hazard" data-side="hazard" type="button" aria-label="Warnblinker">
+        <svg viewBox="0 0 24 24"><path d="M12 4 3 20h18z" /></svg><span>Warnblink</span>
+      </button>
+      <button class="blink" data-side="right" type="button" aria-label="Blinker rechts">
+        <svg viewBox="0 0 24 24"><path d="m10 5 7 7-7 7" /></svg><span>Rechts</span>
+      </button>
+    </div>
+
+    <div class="allrow">
+      <button id="btnAllOn" class="big" type="button">Alles an</button>
+      <button id="btnAllOff" class="big" type="button">Alles aus</button>
+    </div>
+    <div id="lightErr" class="hint err"></div>
+  </section>
+</main>
+
+<!-- Einstellungen -->
+<div id="sheet" class="sheet hidden" role="dialog" aria-label="Einstellungen">
+  <div class="sheet-head">
+    <h2>Einstellungen</h2>
+    <button id="btnClose" class="icon" type="button" aria-label="Schließen">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+    </button>
+  </div>
+  <div class="sheet-body">
+    <div class="card">
+      <h3>Gerät</h3>
+      <p id="devName" class="hint">–</p>
+      <div class="row">
+        <button id="btnOther" type="button">Anderes Gerät</button>
+        <button id="btnDisconnect" type="button">Trennen</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Lichter &amp; GPIO-Pins</h3>
+      <p class="hint">Jede Leuchte hängt über einen MOSFET/Transistor oder ein Relais an einem GPIO des ESP32.</p>
+      <div id="cfgLights"></div>
+      <button id="btnAddLight" type="button">+ Licht hinzufügen</button>
+      <label class="switch"><input type="checkbox" id="cfgInvert"> Ausgänge invertieren (Relais schaltet bei LOW)</label>
+      <label for="cfgBlink">Blinktempo</label>
+      <select id="cfgBlink">
+        <option value="500">langsam</option>
+        <option value="400">normal</option>
+        <option value="250">schnell</option>
+      </select>
+      <button id="btnSaveCfg" class="primary" type="button">Auf ESP32 speichern</button>
+    </div>
+
+    <div class="card">
+      <h3>App</h3>
+      <label class="switch"><input type="checkbox" id="optScreen"> Bildschirm anlassen</label>
+      <label class="switch"><input type="checkbox" id="optVibrate"> Vibrieren beim Tippen</label>
+    </div>
+
+    <div class="card">
+      <h3>Licht-Programm</h3>
+      <p class="hint">Spielt die aktuelle Version von <code>licht.py</code> auf den ESP32 (z. B. nach einem App-Update).</p>
+      <button id="btnReinstall" type="button">Neu installieren</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status"></div>
+<script src="app.js"></script>
+</body>
+</html>
