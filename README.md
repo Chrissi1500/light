@@ -16,6 +16,68 @@ MicroPython-Code, testet ihn direkt auf dem Gerät, liest die Ausgaben und insta
 | `android/` | Quellcode der App (Java + WebView-Oberfläche) |
 | `esp32/` | Agent für den ESP32 (`agent.py`, `main.py`) |
 | `laptop/esp32_setup.py` | Einrichtung am Laptop: MicroPython flashen + Agent installieren |
+| `release/Fahrradlicht.apk` | **Fahrradlicht-App**: Lichter am Fahrrad per Bluetooth schalten (siehe unten) |
+| `fahrradlicht/` | Quellcode der Fahrradlicht-App |
+| `esp32/licht.py` | Licht-Programm für den ESP32 (spielt die App selbst auf) |
+
+---
+
+## Fahrradlicht-App 🚲
+
+Eigene, einfache App nur zum Lichtschalten – große Knöpfe, dunkles Design, verbindet sich automatisch.
+
+- **Lichter** (Frontlicht, Rücklicht, Zusatzlicht): antippen = an/aus, dazu *Aus / An / Blink* und ein Helligkeitsregler (PWM)
+- **Blinker**: ◀ Links · ⚠ Warnblinker · Rechts ▶ (nochmal tippen = aus; links schaltet rechts automatisch ab)
+- **Alles an / Alles aus**
+- **Einstellungen** (Zahnrad): Namen und GPIO-Pins ändern, Lichter hinzufügen/entfernen, Relais-Modus
+  (invertiert), Blinktempo, Bildschirm anlassen, Vibration
+
+### Einrichten
+
+1. ESP32 wie unten in Schritt 1 einrichten (MicroPython + Agent, Bluetooth ist automatisch an).
+2. `release/Fahrradlicht.apk` aufs Handy laden und installieren.
+3. App öffnen → **Suchen** → deinen ESP32 (Standard: *ESP32-Claude*) antippen.
+4. Beim ersten Mal fragt die App: **„Licht-Programm installieren“** → antippen. Sie überträgt `licht.py`
+   per Bluetooth, richtet es als `app.py` mit Autostart ein, der ESP32 startet neu und die App verbindet sich
+   von selbst wieder. Ab dann startet die App direkt mit den Lichtknöpfen.
+
+Die App merkt sich den ESP32 und verbindet sich beim Öffnen (und nach Verbindungsabbrüchen) automatisch.
+Der Zustand der Lichter bleibt auf dem ESP32 gespeichert (`licht.json`), Blinker sind nach dem Einschalten aus.
+
+### Verkabelung (Standard-Pins, in der App änderbar)
+
+| Licht | GPIO |
+|---|---|
+| Frontlicht | 25 |
+| Rücklicht | 26 |
+| Blinker links | 27 |
+| Blinker rechts | 14 |
+| Zusatzlicht | 33 |
+
+Die ESP32-Pins liefern nur 3,3 V und wenige mA – **LEDs/Lampen nie direkt anschließen**, sondern über einen
+Logic-Level-MOSFET (z. B. IRLZ44N, AO3400) oder ein MOSFET-Modul pro Licht:
+
+```
+ Akku + ──────────────► Lampe + 
+                         Lampe − ──► MOSFET Drain
+ ESP32 GPIO ──[220 Ω]──► MOSFET Gate   (+ 10 kΩ Gate → GND)
+ ESP32 GND ──┬─────────► MOSFET Source
+ Akku − ─────┘          (gemeinsame Masse!)
+```
+
+Relais-Module, die bei LOW schalten: in den Einstellungen „Ausgänge invertieren“ anhaken (Helligkeit und
+Blinken funktionieren mit Relais nur eingeschränkt). Den ESP32 kannst du z. B. über einen Step-Down-Wandler
+oder eine USB-Powerbank vom Fahrradakku versorgen.
+
+> Hinweis: Im Straßenverkehr (StVZO) gelten feste Regeln für Fahrradbeleuchtung – z. B. darf das Frontlicht
+> nicht blinken und Blinker sind nur an bestimmten Fahrrädern zugelassen. Die Blink-Funktionen sind für Zusatz-
+> und Spaßbeleuchtung gedacht.
+
+### Protokoll
+
+Die App nutzt den vorhandenen Agent-Befehl `run` über Bluetooth:
+`{"cmd":"run","code":"import licht\nlicht.cmd('{\"a\":\"toggle\",\"id\":\"front\"}')"}` –
+Aktionen: `get`, `set`, `toggle`, `blinker`, `all`, `config` (siehe Kopf von `esp32/licht.py`).
 
 ---
 
